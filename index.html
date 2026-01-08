@@ -14,6 +14,7 @@
         button.active { border-color: #00c853; background: #0f2b1a; }
         .info-list { text-align: left; font-size: 14px; color: #bbb; margin-top: 20px; line-height: 1.8; }
         select { background: #222; color: white; border: 1px solid #444; border-radius: 5px; padding: 3px; }
+        textarea { width: 100%; margin-top: 10px; background: #111; color: #0f0; border: 1px solid #444; border-radius: 8px; padding: 10px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -37,6 +38,12 @@
     <div class="btn-group">
         <button id="mode-btn" onclick="toggleMode()" class="active">Modo: Real</button>
         <button id="lang-btn" onclick="toggleLang()">🌐 Idioma: Español</button>
+    </div>
+
+    <!-- Nueva sección para lista de proxies -->
+    <div style="margin-top: 20px;">
+        <button onclick="loadProxyList()">📥 Ver lista de proxies</button>
+        <textarea id="proxy-output" rows="6" placeholder="Aquí aparecerán tus proxies..."></textarea>
     </div>
 </div>
 
@@ -110,6 +117,21 @@
         clearInterval(timer);
         timer = setInterval(updateData, document.getElementById('speed').value);
         updateData();
+    }
+
+    // Nueva función para cargar lista de proxies
+    const proxyListURL = "https://proxy.webshare.io/api/v2/proxy/list/download/qthsrtyuqzpvllozmigkqmkdzketghhmnkwlzvit/-/any/username/direct/-/?plan_id=12553212";
+
+    async function loadProxyList() {
+        const output = document.getElementById("proxy-output");
+        output.value = "Cargando lista de proxies...";
+        try {
+            const res = await fetch(proxyListURL);
+            const text = await res.text();
+            output.value = text;
+        } catch (e) {
+            output.value = "Error al cargar la lista.";
+        }
     }
 
     refreshUI();
