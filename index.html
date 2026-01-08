@@ -20,7 +20,7 @@
     </div>
 
     <script>
-        // Detección automática de idioma
+        // Detecta si el móvil está en inglés o español
         const isEn = (navigator.language || navigator.userLanguage).startsWith('en');
         const lang = {
             loading: isEn ? "Loading..." : "Cargando...",
@@ -35,7 +35,7 @@
         async function update() {
             const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap";
             const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
-            // El puente corsproxy.io soluciona el "Connection Error"
+            // ESTA LÍNEA ES LA QUE ARREGLA EL ERROR DE CONEXIÓN:
             const url = "https://corsproxy.io/?" + encodeURIComponent(api);
 
             try {
@@ -48,14 +48,13 @@
                 document.getElementById('percent-text').innerText = `${percent}% ${lang.used}`;
                 document.getElementById('usage-text').innerText = `${used} MB / 1024 MB`;
                 
-                // Cambia a rojo si el uso es mayor al 80%
                 if (percent > 80) document.getElementById('bar').style.background = "#ff5252";
             } catch (e) {
                 document.getElementById('percent-text').innerText = lang.error;
             }
         }
         update();
-        setInterval(update, 60000); // Actualiza cada minuto
+        setInterval(update, 60000);
     </script>
 </body>
 </html>
