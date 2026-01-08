@@ -33,9 +33,22 @@
       width: 0%;
       transition: width 1.5s ease-in-out;
     }
+    #mode-toggle {
+      margin-bottom: 20px;
+      padding: 10px 20px;
+      background: #333;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #mode-toggle:hover {
+      background: #555;
+    }
   </style>
 </head>
 <body>
+  <button id="mode-toggle">Modo: Real</button>
   <div class="card">
     <div id="percent-text" style="font-weight: bold; font-size: 20px;">...</div>
     <div class="progress-bg">
@@ -55,36 +68,60 @@
     };
 
     const limitMB = 1024;
-    document.getElementById('percent-text').innerText = lang.loading;
-    document.getElementById('limit-label').innerText = `${lang.limit}: ${(limitMB / 1024).toFixed(1)} GB`;
+    let demoMode = false;
+
+    const percentText = document.getElementById('percent-text');
+    const usageText = document.getElementById('usage-text');
+    const limitLabel = document.getElementById('limit-label');
+    const bar = document.getElementById('bar');
+    const toggleBtn = document.getElementById('mode-toggle');
+
+    percentText.innerText = lang.loading;
+    limitLabel.innerText = `${lang.limit}: ${(limitMB / 1024).toFixed(1)} GB`;
+
+    toggleBtn.onclick = () => {
+      demoMode = !demoMode;
+      toggleBtn.innerText = demoMode ? "Modo: Demo" : "Modo: Real";
+      update();
+    };
 
     async function update() {
-      const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap";
-      const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
-      const url = "https://corsproxy.io/?" + encodeURIComponent(api);
-
-      try {
-        const res = await fetch(url, {
-          headers: { 'Authorization': `Token ${token}` }
-        });
-        const data = await res.json();
-        const used = (data.actual_usage / 1048576).toFixed(2);
+      if (demoMode) {
+        const used = (Math.random() * limitMB).toFixed(2);
         const percent = Math.min((used / limitMB) * 100, 100).toFixed(1);
+        render(percent, used);
+      } else {
+        const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap";
+        const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
+        const url = "https://corsproxy.io/?" + encodeURIComponent(api);
 
-        const bar = document.getElementById('bar');
-        bar.style.width = percent + "%";
-        bar.setAttribute("aria-valuenow", percent);
-
-        // Color dinámico
-        if (percent > 80) bar.style.background = "#ff5252";
-        else if (percent > 50) bar.style.background = "#ffeb3b";
-        else bar.style.background = "linear-gradient(90deg, #00c853, #b2ff59)";
-
-        document.getElementById('percent-text').innerText = `${percent}% ${lang.used}`;
-        document.getElementById('usage-text').innerText = `${used} MB / ${limitMB} MB`;
-      } catch (e) {
-        document.getElementById('percent-text').innerText = lang.error;
+        try {
+          const res = await fetch(url, {
+            headers: { 'Authorization': `Token ${token}` }
+          });
+          const data = await res.json();
+          const used = (data.actual_usage / 1048576).toFixed(2);
+          const percent = Math.min((used / limitMB) * 100, 100).toFixed(1);
+          render(percent, used);
+        } catch (e) {
+          percentText.innerText = lang.error;
+          usageText.innerText = `0 MB / ${limitMB} MB`;
+          bar.style.width = "0%";
+          bar.style.background = "#555";
+        }
       }
+    }
+
+    function render(percent, used) {
+      bar.style.width = percent + "%";
+      bar.setAttribute("aria-valuenow", percent);
+
+      if (percent > 80) bar.style.background = "#ff5252";
+      else if (percent > 50) bar.style.background = "#ffeb3b";
+      else bar.style.background = "linear-gradient(90deg, #00c853, #b2ff59)";
+
+      percentText.innerText = `${percent}% ${lang.used}`;
+      usageText.innerText = `${used} MB / ${limitMB} MB`;
     }
 
     update();
