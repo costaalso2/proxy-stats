@@ -75,7 +75,7 @@
 
     async function updateData() {
         if(isDemo) {
-            render(446, 12, 850); // Datos Demo para probar la barra
+            render(446, 1200, 850); // Datos Demo para probar la barra
             return;
         }
 
@@ -86,7 +86,9 @@
             const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
             const data = await res.json();
             const used = (data.actual_usage / 1048576).toFixed(2);
-            render(used, "Conectado", "Calculando...");
+            const requests = data.total_requests || "--";
+            const projected = data.projected_usage ? (data.projected_usage / 1048576).toFixed(2) : "--";
+            render(used, requests, projected);
         } catch (e) {
             document.getElementById('percent-text').innerText = "Error";
         }
@@ -99,7 +101,7 @@
         document.getElementById('percent-text').innerText = percent + "% " + p.used;
         document.getElementById('usage-text').innerText = used + " MB / 1024 MB";
         document.getElementById('req-val').innerText = req;
-        document.getElementById('proj-val').innerText = proj === "Calculando..." ? proj : proj + " MB";
+        document.getElementById('proj-val').innerText = proj === "--" ? "--" : proj + " MB";
         
         document.getElementById('bar').style.background = percent > 80 ? "#ff5252" : "linear-gradient(90deg, #00c853, #b2ff59)";
     }
