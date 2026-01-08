@@ -18,8 +18,9 @@
       border-radius: 20px;
       display: inline-block;
       width: 90%;
-      max-width: 320px;
+      max-width: 350px;
       border: 1px solid #333;
+      box-shadow: 0 0 15px rgba(0,255,100,0.2);
     }
     .progress-bg {
       background: #333;
@@ -33,8 +34,8 @@
       width: 0%;
       transition: width 1.5s ease-in-out;
     }
-    #mode-toggle {
-      margin-bottom: 20px;
+    #mode-toggle, #speed-select {
+      margin: 10px;
       padding: 10px 20px;
       background: #333;
       color: white;
@@ -42,8 +43,17 @@
       border-radius: 10px;
       cursor: pointer;
     }
-    #mode-toggle:hover {
+    #mode-toggle:hover, #speed-select:hover {
       background: #555;
+    }
+    #extra-stats {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #ccc;
+      text-align: left;
+    }
+    #extra-stats p {
+      margin: 5px 0;
     }
   </style>
 </head>
@@ -56,6 +66,24 @@
     </div>
     <div id="usage-text">0 MB / 1024 MB</div>
     <p id="limit-label" style="font-size: 12px; color: #888; margin-top: 15px;"></p>
+
+    <!-- Selector de velocidad -->
+    <div style="margin-top: 20px;">
+      <label for="speed-select">⏱️ Actualización:</label>
+      <select id="speed-select">
+        <option value="0">Solo al entrar</option>
+        <option value="10000">Cada 10 segundos</option>
+        <option value="30000">Cada 30 segundos</option>
+        <option value="60000" selected>Cada 60 segundos</option>
+      </select>
+    </div>
+
+    <!-- Estadísticas adicionales -->
+    <div id="extra-stats">
+      <p>📦 Solicitudes: <span id="requests">--</span></p>
+      <p>📈 Proyección mensual: <span id="projected">--</span></p>
+      <p>🗓️ Ciclo: <span id="cycle">--</span></p>
+    </div>
   </div>
 
   <script>
@@ -69,48 +97,38 @@
 
     const limitMB = 1024;
     let demoMode = false;
+    let simulatedUsed = 0;
 
     const percentText = document.getElementById('percent-text');
     const usageText = document.getElementById('usage-text');
     const limitLabel = document.getElementById('limit-label');
     const bar = document.getElementById('bar');
     const toggleBtn = document.getElementById('mode-toggle');
+    const speedSelect = document.getElementById('speed-select');
 
-    percentText.innerText = lang.loading;
     limitLabel.innerText = `${lang.limit}: ${(limitMB / 1024).toFixed(1)} GB`;
+
+    // Guardar modo y velocidad en localStorage
+    const savedMode = localStorage.getItem("proxyMode");
+    const savedSpeed = localStorage.getItem("proxySpeed");
+    if (savedMode) demoMode = savedMode === "demo";
+    if (savedSpeed) speedSelect.value = savedSpeed;
+
+    toggleBtn.innerText = demoMode ? "Modo: Demo" : "Modo: Real";
 
     toggleBtn.onclick = () => {
       demoMode = !demoMode;
+      localStorage.setItem("proxyMode", demoMode ? "demo" : "real");
       toggleBtn.innerText = demoMode ? "Modo: Demo" : "Modo: Real";
       update();
     };
 
-    async function update() {
-      if (demoMode) {
-        const used = (Math.random() * limitMB).toFixed(2);
-        const percent = Math.min((used / limitMB) * 100, 100).toFixed(1);
-        render(percent, used);
-      } else {
-        const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap";
-        const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
-        const url = "https://corsproxy.io/?" + encodeURIComponent(api);
-
-        try {
-          const res = await fetch(url, {
-            headers: { 'Authorization': `Token ${token}` }
-          });
-          const data = await res.json();
-          const used = (data.actual_usage / 1048576).toFixed(2);
-          const percent = Math.min((used / limitMB) * 100, 100).toFixed(1);
-          render(percent, used);
-        } catch (e) {
-          percentText.innerText = lang.error;
-          usageText.innerText = `0 MB / ${limitMB} MB`;
-          bar.style.width = "0%";
-          bar.style.background = "#555";
-        }
-      }
-    }
+    speedSelect.onchange = (e) => {
+      const speed = parseInt(e.target.value);
+      localStorage.setItem("proxySpeed", speed);
+      clearInterval(window.proxyInterval);
+      if (speed > 0) window.proxyInterval = setInterval(update, speed);
+    };
 
     function render(percent, used) {
       bar.style.width = percent + "%";
@@ -124,8 +142,52 @@
       usageText.innerText = `${used} MB / ${limitMB} MB`;
     }
 
+    function renderStats(requests, projected, start, end) {
+      document.getElementById("requests").innerText = requests || "--";
+      document.getElementById("projected").innerText = projected || "--";
+      document.getElementById("cycle").innerText = start && end ? `${start} → ${end}` : "--";
+    }
+
+    function simulateData() {
+      simulatedUsed += Math.random() * 20;
+      if (simulatedUsed > limitMB) simulatedUsed = 0;
+      const used = simulatedUsed.toFixed(2);
+      const percent = Math.min((used / limitMB) * 100, 100).toFixed(1);
+      render(percent, used);
+      renderStats("5,333", "20.56 GB", "07 Ene 2026", "06 Feb 2026");
+    }
+
+    async function update() {
+      if (demoMode) return simulateData();
+
+      const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap";
+      const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
+      const url = "https://corsproxy.io/?" + encodeURIComponent(api);
+
+      try {
+        const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
+        const data = await res.json();
+        const used = (data.actual_usage / 1048576).toFixed(2);
+        const percent = Math.min((used / limitMB) * 100, 100).toFixed(1);
+        render(percent, used);
+
+        const requests = data.total_requests || "--";
+        const projected = data.projected_usage ? (data.projected_usage / 1073741824).toFixed(2) + " GB" : "--";
+        const start = data.start_date?.split("T")[0];
+        const end = data.end_date?.split("T")[0];
+        renderStats(requests, projected, start, end);
+      } catch (e) {
+        percentText.innerText = lang.error;
+        usageText.innerText = `0 MB / ${limitMB} MB`;
+        bar.style.width = "0%";
+        bar.style.background = "#555";
+        renderStats("--", "--", "--", "--");
+      }
+    }
+
+    const initialSpeed = parseInt(speedSelect.value);
+    if (initialSpeed > 0) window.proxyInterval = setInterval(update, initialSpeed);
     update();
-    setInterval(update, 60000);
   </script>
 </body>
 </html>
