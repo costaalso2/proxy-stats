@@ -9,53 +9,50 @@
         .card { background: #1a1a1a; padding: 25px; border-radius: 20px; display: inline-block; width: 90%; max-width: 320px; border: 1px solid #333; }
         .progress-bg { background: #333; border-radius: 15px; height: 30px; margin: 20px 0; overflow: hidden; }
         #bar { background: linear-gradient(90deg, #00c853, #b2ff59); height: 100%; width: 0%; transition: width 1.5s ease-in-out; }
-        .stats { font-weight: bold; font-size: 20px; margin-bottom: 5px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="stats" id="percent-text">...</div>
+        <div id="percent-text" style="font-weight: bold; font-size: 20px;">...</div>
         <div class="progress-bg"><div id="bar"></div></div>
         <div id="usage-text">0 MB / 1024 MB</div>
         <p id="limit-label" style="font-size: 12px; color: #888; margin-top: 15px;"></p>
     </div>
 
     <script>
-        const userLang = navigator.language || navigator.userLanguage;
-        const isEn = userLang.startsWith('en');
-
-        const texts = {
+        const isEn = (navigator.language || navigator.userLanguage).startsWith('en');
+        const lang = {
             loading: isEn ? "Loading..." : "Cargando...",
             used: isEn ? "Used" : "Usado",
-            limit: isEn ? "Monthly Limit: 1.0 GB" : "Límite Mensual: 1.0 GB",
-            retry: isEn ? "Retrying..." : "Reintentando..."
+            limit: isEn ? "Limit: 1.0 GB" : "Límite: 1.0 GB",
+            error: isEn ? "Connection Error" : "Error de Conexión"
         };
 
-        document.getElementById('percent-text').innerText = texts.loading;
-        document.getElementById('limit-label').innerText = texts.limit;
+        document.getElementById('percent-text').innerText = lang.loading;
+        document.getElementById('limit-label').innerText = lang.limit;
 
-        async function updateStats() {
+        async function update() {
             const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap";
             const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
+            // Este conector (corsproxy.io) evita que se quede en "Retrying"
             const url = "https://corsproxy.io/?" + encodeURIComponent(api);
 
             try {
-                const response = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
-                const data = await response.json();
-                const usedMB = (data.actual_usage / (1024 * 1024)).toFixed(2);
-                const percent = Math.min(((usedMB / 1024) * 100), 100).toFixed(1);
+                const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
+                const data = await res.json();
+                const used = (data.actual_usage / 1048576).toFixed(2);
+                const percent = Math.min(((used / 1024) * 100), 100).toFixed(1);
                 
                 document.getElementById('bar').style.width = percent + "%";
-                document.getElementById('percent-text').innerText = `${percent}% ${texts.used}`;
-                document.getElementById('usage-text').innerText = `${usedMB} MB / 1024 MB`;
-
+                document.getElementById('percent-text').innerText = `${percent}% ${lang.used}`;
+                document.getElementById('usage-text').innerText = `${used} MB / 1024 MB`;
                 if (percent > 80) document.getElementById('bar').style.background = "#ff5252";
-            } catch (error) {
-                document.getElementById('percent-text').innerText = texts.retry;
+            } catch (e) {
+                document.getElementById('percent-text').innerText = lang.error;
             }
         }
-        updateStats();
-        setInterval(updateStats, 60000);
+        update();
+        setInterval(update, 60000);
     </script>
 </body>
 </html>
