@@ -1,191 +1,117 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Proxy Monitor</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #0f0f0f;
-      color: white;
-      text-align: center;
-      padding: 20px;
-    }
-    .card {
-      background: #1a1a1a;
-      padding: 25px;
-      border-radius: 20px;
-      display: inline-block;
-      width: 90%;
-      max-width: 350px;
-      border: 1px solid #333;
-      box-shadow: 0 0 15px rgba(0,255,100,0.2);
-    }
-    .progress-bg {
-      background: #333;
-      border-radius: 15px;
-      height: 30px;
-      margin: 20px 0;
-      overflow: hidden;
-    }
-    #bar {
-      height: 100%;
-      width: 0%;
-      transition: width 1.5s ease-in-out;
-    }
-    button, select {
-      margin: 10px;
-      padding: 10px 20px;
-      background: #333;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-    button:hover, select:hover {
-      background: #555;
-    }
-    #extra-stats {
-      margin-top: 20px;
-      font-size: 14px;
-      color: #ccc;
-      text-align: left;
-    }
-    #extra-stats p {
-      margin: 5px 0;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proxy Monitor Pro</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: white; text-align: center; padding: 20px; }
+        .card { background: #161616; padding: 25px; border-radius: 20px; display: inline-block; width: 95%; max-width: 350px; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .progress-bg { background: #333; border-radius: 15px; height: 30px; margin: 20px 0; overflow: hidden; border: 1px solid #444; }
+        #bar { background: linear-gradient(90deg, #00c853, #b2ff59); height: 100%; width: 0%; transition: width 1.5s ease; }
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+        button { cursor: pointer; background: #222; color: white; border: 1px solid #444; padding: 8px 15px; border-radius: 12px; font-size: 13px; transition: 0.3s; }
+        button.active { border-color: #00c853; background: #0f2b1a; }
+        .info-list { text-align: left; font-size: 14px; color: #bbb; margin-top: 20px; line-height: 1.8; }
+        select { background: #222; color: white; border: 1px solid #444; border-radius: 5px; padding: 3px; }
+    </style>
 </head>
 <body>
-  <!-- Botones de interfaz -->
-  <button id="mode-toggle">Modo: Real</button>
-  <button id="lang-toggle">🌐 Idioma: Español</button>
 
-  <div class="card">
-    <div id="percent-text" style="font-weight: bold; font-size: 20px;">...</div>
-    <div class="progress-bg">
-      <div id="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"></div>
-    </div>
-    <div id="usage-text">0 MB / 1024 MB</div>
-    <p id="limit-label" style="font-size: 12px; color: #888; margin-top: 15px;"></p>
-
-    <!-- Selector de velocidad -->
-    <div style="margin-top: 20px;">
-      <label for="speed-select">⏱️ Actualización:</label>
-      <select id="speed-select">
-        <option value="0">Solo al entrar</option>
-        <option value="10000">Cada 10 segundos</option>
-        <option value="30000">Cada 30 segundos</option>
-        <option value="60000" selected>Cada 60 segundos</option>
-      </select>
+<div class="card">
+    <h2 id="percent-text">Cargando...</h2>
+    <div class="progress-bg"><div id="bar"></div></div>
+    <div id="usage-text" style="font-size: 18px; font-weight: bold;">0 MB / 1024 MB</div>
+    
+    <div class="info-list">
+        <div>⏱️ <span id="label-upd">Actualización</span>: 
+            <select id="speed" onchange="resetTimer()">
+                <option value="60000">Cada 60s</option>
+                <option value="30000">Cada 30s</option>
+            </select>
+        </div>
+        <div>📦 <span id="label-req">Solicitudes</span>: <span id="req-val">--</span></div>
+        <div>📈 <span id="label-proj">Proyección</span>: <span id="proj-val">--</span></div>
     </div>
 
-    <!-- Estadísticas adicionales -->
-    <div id="extra-stats">
-      <p id="requests-label">📦 Solicitudes: <span id="requests">--</span></p>
-      <p id="projected-label">📈 Proyección mensual: <span id="projected">--</span></p>
-      <p id="cycle-label">🗓️ Ciclo: <span id="cycle">--</span></p>
+    <div class="btn-group">
+        <button id="mode-btn" onclick="toggleMode()" class="active">Modo: Real</button>
+        <button id="lang-btn" onclick="toggleLang()">🌐 Idioma: Español</button>
     </div>
-  </div>
+</div>
 
-  <script>
-    const limitMB = 1024;
-    let demoMode = false;
-    let simulatedUsed = 0;
+<script>
+    const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap";
+    let isEn = false;
+    let isDemo = false;
+    let timer;
 
-    const percentText = document.getElementById('percent-text');
-    const usageText = document.getElementById('usage-text');
-    const limitLabel = document.getElementById('limit-label');
-    const bar = document.getElementById('bar');
-    const toggleBtn = document.getElementById('mode-toggle');
-    const speedSelect = document.getElementById('speed-select');
-    const langBtn = document.getElementById('lang-toggle');
-
-    // Diccionario de idiomas (ejemplo con 2, puedes ampliar)
-    let currentLang = localStorage.getItem("proxyLang") || "es";
-    const translations = {
-      es:{loading:"Cargando...",used:"Usado",limit:"Límite",error:"Error de Conexión",requests:"📦 Solicitudes",projected:"📈 Proyección mensual",cycle:"🗓️ Ciclo",langLabel:"🌐 Idioma: Español",modeReal:"Modo: Real",modeDemo:"Modo: Demo"},
-      en:{loading:"Loading...",used:"Used",limit:"Limit",error:"Connection Error",requests:"📦 Requests",projected:"📈 Monthly Projection",cycle:"🗓️ Cycle",langLabel:"🌐 Language: English",modeReal:"Mode: Real",modeDemo:"Mode: Demo"}
-    };
-    const langList = Object.keys(translations);
-
-    function setLanguage(lang) {
-      currentLang = lang;
-      localStorage.setItem("proxyLang", lang);
-      langBtn.innerText = translations[lang].langLabel;
-      limitLabel.innerText = `${translations[lang].limit}: ${(limitMB / 1024).toFixed(1)} GB`;
-      document.getElementById("requests-label").firstChild.textContent = translations[lang].requests + ": ";
-      document.getElementById("projected-label").firstChild.textContent = translations[lang].projected + ": ";
-      document.getElementById("cycle-label").firstChild.textContent = translations[lang].cycle + ": ";
-      toggleBtn.innerText = demoMode ? translations[lang].modeDemo : translations[lang].modeReal;
-    }
-
-    langBtn.onclick = () => {
-      const currentIndex = langList.indexOf(currentLang);
-      const nextIndex = (currentIndex + 1) % langList.length;
-      setLanguage(langList[nextIndex]);
+    const lang = {
+        es: { used: "Usado", upd: "Actualización", req: "Solicitudes", proj: "Proyección", real: "Modo: Real", demo: "Modo: Demo", lang: "Idioma: Español" },
+        en: { used: "Used", upd: "Update", req: "Requests", proj: "Projection", real: "Mode: Real", demo: "Mode: Demo", lang: "Language: English" }
     };
 
-    // Guardar modo y velocidad
-    const savedMode = localStorage.getItem("proxyMode");
-    const savedSpeed = localStorage.getItem("proxySpeed");
-    if (savedMode) demoMode = savedMode === "demo";
-    if (savedSpeed) speedSelect.value = savedSpeed;
-
-    toggleBtn.innerText = demoMode ? translations[currentLang].modeDemo : translations[currentLang].modeReal;
-
-    toggleBtn.onclick = () => {
-      demoMode = !demoMode;
-      localStorage.setItem("proxyMode", demoMode ? "demo" : "real");
-      toggleBtn.innerText = demoMode ? translations[currentLang].modeDemo : translations[currentLang].modeReal;
-      update();
-    };
-
-    speedSelect.onchange = (e) => {
-      const speed = parseInt(e.target.value);
-      localStorage.setItem("proxySpeed", speed);
-      clearInterval(window.proxyInterval);
-      if (speed > 0) window.proxyInterval = setInterval(update, speed);
-    };
-
-    function render(percent, used) {
-      bar.style.width = percent + "%";
-      bar.setAttribute("aria-valuenow", percent);
-
-      if (percent > 80) bar.style.background = "#ff5252";
-      else if (percent > 50) bar.style.background = "#ffeb3b";
-      else bar.style.background = "linear-gradient(90deg, #00c853, #b2ff59)";
-
-      percentText.innerText = `${percent}% ${translations[currentLang].used}`;
-      usageText.innerText = `${used} MB / ${limitMB} MB`;
+    function toggleLang() {
+        isEn = !isEn;
+        refreshUI();
+        updateData();
     }
 
-    function renderStats(requests, projected, start, end) {
-      document.getElementById("requests").innerText = requests || "--";
-      document.getElementById("projected").innerText = projected || "--";
-      document.getElementById("cycle").innerText = start && end ? `${start} → ${end}` : "--";
+    function toggleMode() {
+        isDemo = !isDemo;
+        document.getElementById('mode-btn').classList.toggle('active', !isDemo);
+        refreshUI();
+        updateData();
     }
 
-    function simulateData() {
-      simulatedUsed += Math.random() * 20;
-      if (simulatedUsed > limitMB) simulatedUsed = 0;
-      const used = simulatedUsed.toFixed(2);
-      const percent = Math.min((used / limitMB) * 100, 100).toFixed(1);
-      render(percent, used);
-      renderStats("5,333", "20.56 GB", "07 Ene 2026", "06 Feb 2026");
+    function refreshUI() {
+        const p = isEn ? lang.en : lang.es;
+        document.getElementById('lang-btn').innerText = "🌐 " + p.lang;
+        document.getElementById('mode-btn').innerText = isDemo ? p.demo : p.real;
+        document.getElementById('label-upd').innerText = p.upd;
+        document.getElementById('label-req').innerText = p.req;
+        document.getElementById('label-proj').innerText = p.proj;
     }
 
-    async function update() {
-      if (demoMode) return simulateData();
+    async function updateData() {
+        if(isDemo) {
+            render(446, 12, 850); // Datos Demo para probar la barra
+            return;
+        }
 
-      const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap";
-      const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
-      const url = "https://corsproxy.io/?" + encodeURIComponent(api);
+        const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
+        const url = "https://corsproxy.io/?" + encodeURIComponent(api);
 
-      try {
-        const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
-        const data = await res.json();
-        const used = (data.actual_usage / 1048576).toFixed(2);
-        const percent = Math.min((used / limitMB) * 100, 100).toFixed(1);
-        render(percent, used);
+        try {
+            const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
+            const data = await res.json();
+            const used = (data.actual_usage / 1048576).toFixed(2);
+            render(used, "Conectado", "Calculando...");
+        } catch (e) {
+            document.getElementById('percent-text').innerText = "Error";
+        }
+    }
+
+    function render(used, req, proj) {
+        const p = isEn ? lang.en : lang.es;
+        const percent = ((used / 1024) * 100).toFixed(1);
+        document.getElementById('bar').style.width = percent + "%";
+        document.getElementById('percent-text').innerText = percent + "% " + p.used;
+        document.getElementById('usage-text').innerText = used + " MB / 1024 MB";
+        document.getElementById('req-val').innerText = req;
+        document.getElementById('proj-val').innerText = proj === "Calculando..." ? proj : proj + " MB";
+        
+        document.getElementById('bar').style.background = percent > 80 ? "#ff5252" : "linear-gradient(90deg, #00c853, #b2ff59)";
+    }
+
+    function resetTimer() {
+        clearInterval(timer);
+        timer = setInterval(updateData, document.getElementById('speed').value);
+        updateData();
+    }
+
+    refreshUI();
+    resetTimer();
+</script>
+</body>
+</html>
