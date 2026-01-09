@@ -1,126 +1,77 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Proxy Monitor Pro</title>
-  <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: white; text-align: center; padding: 20px; }
-    .card { background: #161616; padding: 25px; border-radius: 20px; display: inline-block; width: 95%; max-width: 350px; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    .progress-bg { background: #333; border-radius: 15px; height: 30px; margin: 20px 0; overflow: hidden; border: 1px solid #444; }
-    #bar { background: linear-gradient(90deg, #00c853, #b2ff59); height: 100%; width: 0%; transition: width 1.5s ease; }
-    .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
-    button { cursor: pointer; background: #222; color: white; border: 1px solid #444; padding: 8px 15px; border-radius: 12px; font-size: 13px; transition: 0.3s; }
-    button.active { border-color: #00c853; background: #0f2b1a; }
-    .info-list { text-align: left; font-size: 14px; color: #bbb; margin-top: 20px; line-height: 1.8; }
-    select { background: #222; color: white; border: 1px solid #444; border-radius: 5px; padding: 3px; }
-    textarea { width: 100%; margin-top: 10px; background: #111; color: #0f0; border: 1px solid #444; border-radius: 8px; padding: 10px; font-size: 12px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estado Real del Proxy</title>
+    <style>
+        body { font-family: sans-serif; background: #0a0a0a; color: white; text-align: center; padding: 20px; }
+        .card { background: #161616; padding: 25px; border-radius: 20px; display: inline-block; width: 90%; max-width: 350px; border: 1px solid #333; }
+        .progress-bg { background: #333; border-radius: 15px; height: 30px; margin: 15px 0; overflow: hidden; }
+        #bar { background: linear-gradient(90deg, #00c853, #b2ff59); height: 100%; width: 0%; transition: width 1s ease; }
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+        button { cursor: pointer; background: #222; color: white; border: 1px solid #444; padding: 8px 12px; border-radius: 10px; font-size: 12px; }
+    </style>
 </head>
 <body>
+    <div class="card">
+        <h2 id="percent-text">Iniciando...</h2>
+        <div class="progress-bg"><div id="bar"></div></div>
+        <div id="usage-text" style="font-weight: bold;">0 MB / 1024 MB</div>
+        
+        <div style="text-align: left; font-size: 13px; margin-top: 15px; color: #aaa;">
+            <div>⏱️ <span id="label-upd">Actualización</span>: Cada 60s</div>
+            <div>📦 <span id="label-req">Solicitudes</span>: <span id="req-val">Conectando...</span></div>
+        </div>
 
-<div class="card">
-  <h2 id="percent-text">Cargando...</h2>
-  <div class="progress-bg"><div id="bar"></div></div>
-  <div id="usage-text" style="font-size: 18px; font-weight: bold;">0 MB / 1024 MB</div>
-
-  <div class="info-list">
-    <div>⏱️ <span id="label-upd">Actualización</span>: 
-      <select id="speed" onchange="resetTimer()">
-        <option value="60000">Cada 60s</option>
-        <option value="30000">Cada 30s</option>
-      </select>
+        <div class="btn-group">
+            <button id="lang-btn" onclick="toggleLang()">🌐 Idioma: Español</button>
+            <button onclick="updateData()">🔄 Actualizar Ahora</button>
+        </div>
     </div>
-    <div>📦 <span id="label-req">Solicitudes</span>: <span id="req-val">--</span></div>
-    <div>📈 <span id="label-proj">Proyección</span>: <span id="proj-val">--</span></div>
-  </div>
 
-  <div class="btn-group">
-    <button id="mode-btn" onclick="toggleMode()" class="active">Modo: Real</button>
-    <button id="lang-btn" onclick="toggleLang()">🌐 Idioma: Español</button>
-  </div>
+    <script>
+        const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap";
+        let isEn = (navigator.language || navigator.userLanguage).startsWith('en');
 
-  <div style="margin-top: 20px;">
-    <button onclick="mostrarLista()">📛 Ver lista de proxies</button>
-    <button onclick="descargarLista()">📥 Descargar como archivo</button>
-    <textarea id="proxy-output" rows="6" placeholder="Aquí aparecerán tus proxies..."></textarea>
-  </div>
-</div>
+        const t = {
+            es: { used: "Usado", upd: "Actualización", req: "Solicitudes", lang: "Español" },
+            en: { used: "Used", upd: "Update", req: "Requests", lang: "English" }
+        };
 
-<script>
-  const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap"; 
-  let isEn = JSON.parse(localStorage.getItem("isEn")) || false;
-  let isDemo = JSON.parse(localStorage.getItem("isDemo")) || false;
-  let timer;
+        function toggleLang() {
+            isEn = !isEn;
+            updateData();
+        }
 
-  const lang = {
-    es: { used: "Usado", upd: "Actualización", req: "Solicitudes", proj: "Proyección", real: "Modo: Real", demo: "Modo: Demo", lang: "Idioma: Español" },
-    en: { used: "Used", upd: "Update", req: "Requests", proj: "Projection", real: "Mode: Real", demo: "Mode: Demo", lang: "Language: English" }
-  };
+        async function updateData() {
+            const p = isEn ? t.en : t.es;
+            document.getElementById('lang-btn').innerText = "🌐 Idioma: " + p.lang;
+            document.getElementById('label-upd').innerText = p.upd;
+            document.getElementById('label-req').innerText = p.req;
 
-  async function updateData() {
-    if(isDemo) {
-      render(446, 1200, 850);
-      return;
-    }
+            const url = "https://corsproxy.io/?" + encodeURIComponent("https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/");
 
-    const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
-    const url = "https://corsproxy.io/?" + encodeURIComponent(api);
+            try {
+                const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
+                const data = await res.json();
+                const usedMB = (data.actual_usage / 1048576).toFixed(2);
+                const percent = ((usedMB / 1024) * 100).toFixed(1);
 
-    try {
-      const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
-      const data = await res.json();
-      const used = (data.actual_usage / 1048576).toFixed(2);
-      const requests = data.total_requests || "--";
-      const projected = data.projected_usage ? (data.projected_usage / 1048576).toFixed(2) : "--";
-      render(used, requests, projected);
-    } catch (e) {
-      document.getElementById('percent-text').innerText = "Error";
-    }
-  }
+                document.getElementById('bar').style.width = percent + "%";
+                document.getElementById('percent-text').innerText = `${percent}% ${p.used}`;
+                document.getElementById('usage-text').innerText = `${usedMB} MB / 1024 MB`;
+                document.getElementById('req-val').innerText = "Activo";
+            } catch (e) {
+                document.getElementById('percent-text').innerText = "Error";
+            }
+        }
 
-  function render(used, req, proj) {
-    const p = isEn ? lang.en : lang.es;
-    const percent = ((used / 1024) * 100).toFixed(1);
-    document.getElementById('bar').style.width = percent + "%";
-    document.getElementById('percent-text').innerText = percent + "% " + p.used;
-    document.getElementById('usage-text').innerText = used + " MB / 1024 MB";
-    document.getElementById('req-val').innerText = req;
-    document.getElementById('proj-val').innerText = proj === "--" ? "--" : proj + " MB";
-    document.getElementById('bar').style.background = percent > 80 ? "#ff5252" : "linear-gradient(90deg, #00c853, #b2ff59)";
-  }
-
-  function resetTimer() {
-    clearInterval(timer);
-    const speed = document.getElementById('speed').value;
-    localStorage.setItem("speed", speed);
-    timer = setInterval(updateData, speed);
-    updateData();
-  }
-
-  const proxyListURL = "https://proxy.webshare.io/api/v2/proxy/list/download/" + token + "/-/any/username/direct/-/?plan_id=12553212";
-
-  function mostrarLista() {
-    const output = document.getElementById("proxy-output");
-    output.value = "Abriendo lista en nueva pestaña...";
-    window.open(proxyListURL, "_blank");
-  }
-
-  function descargarLista() {
-    const enlace = document.createElement("a");
-    enlace.href = proxyListURL;
-    enlace.download = "webshare_proxies.txt";
-    enlace.click();
-  }
-
-  window.onload = () => {
-    const savedSpeed = localStorage.getItem("speed");
-    if (savedSpeed) {
-      document.getElementById("speed").value = savedSpeed;
-    }
-    refreshUI();
-    resetTimer();
-  };
-</script>
+        // Se ejecuta al entrar automáticamente
+        updateData();
+        // Se repite cada minuto
+        setInterval(updateData, 60000);
+    </script>
 </body>
 </html>
+
