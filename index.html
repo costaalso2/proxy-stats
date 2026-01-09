@@ -15,7 +15,6 @@
     .info-list { text-align: left; font-size: 14px; color: #bbb; margin-top: 20px; line-height: 1.8; }
     select { background: #222; color: white; border: 1px solid #444; border-radius: 5px; padding: 3px; }
     textarea { width: 100%; margin-top: 10px; background: #111; color: #0f0; border: 1px solid #444; border-radius: 8px; padding: 10px; font-size: 12px; }
-    .small { font-size: 12px; color: #999; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -41,18 +40,17 @@
     <button id="lang-btn" onclick="toggleLang()">🌐 Idioma: Español</button>
   </div>
 
-  <!-- Nueva sección para lista de proxies -->
   <div style="margin-top: 20px;">
-    <button onclick="mostrarLista()" id="view-list-btn">📛 Ver lista de proxies</button>
-    <button onclick="descargarLista()" id="download-list-btn">📥 Descargar como archivo</button>
+    <button onclick="mostrarLista()">📛 Ver lista de proxies</button>
+    <button onclick="descargarLista()">📥 Descargar como archivo</button>
     <textarea id="proxy-output" rows="6" placeholder="Aquí aparecerán tus proxies..."></textarea>
-    <div class="small">Nota: el token está protegido en el servidor. Ejecuta el servidor con WS_TOKEN en .env.</div>
   </div>
 </div>
 
 <script>
-  let isEn = false;
-  let isDemo = false;
+  const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap"; 
+  let isEn = JSON.parse(localStorage.getItem("isEn")) || false;
+  let isDemo = JSON.parse(localStorage.getItem("isDemo")) || false;
   let timer;
 
   const lang = {
@@ -60,57 +58,33 @@
     en: { used: "Used", upd: "Update", req: "Requests", proj: "Projection", real: "Mode: Real", demo: "Mode: Demo", lang: "Language: English" }
   };
 
-  function toggleLang() {
-    isEn = !isEn;
-    refreshUI();
-    updateData();
-  }
-
-  function toggleMode() {
-    isDemo = !isDemo;
-    document.getElementById('mode-btn').classList.toggle('active', !isDemo);
-    refreshUI();
-    updateData();
-  }
-
-  function refreshUI() {
-    const p = isEn ? lang.en : lang.es;
-    document.getElementById('lang-btn').innerText = "🌐 " + p.lang;
-    document.getElementById('mode-btn').innerText = isDemo ? p.demo : p.real;
-    document.getElementById('label-upd').innerText = p.upd;
-    document.getElementById('label-req').innerText = p.req;
-    document.getElementById('label-proj').innerText = p.proj;
-  }
-
   async function updateData() {
-    if (isDemo) {
+    if(isDemo) {
       render(446, 1200, 850);
       return;
     }
 
+    const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
+    const url = "https://corsproxy.io/?" + encodeURIComponent(api);
+
     try {
-      const res = await fetch('/api/stats');
-      if (!res.ok) throw new Error('Network response was not ok');
+      const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
       const data = await res.json();
-      const used = Number((data.actual_usage || 0) / 1048576).toFixed(2);
+      const used = (data.actual_usage / 1048576).toFixed(2);
       const requests = data.total_requests || "--";
-      const projected = data.projected_usage ? Number(data.projected_usage / 1048576).toFixed(2) : "--";
+      const projected = data.projected_usage ? (data.projected_usage / 1048576).toFixed(2) : "--";
       render(used, requests, projected);
     } catch (e) {
-      console.error(e);
-      document.getElementById('percent-text').innerText = isEn ? 'Error' : 'Error';
-      document.getElementById('usage-text').innerText = '--';
+      document.getElementById('percent-text').innerText = "Error";
     }
   }
 
   function render(used, req, proj) {
     const p = isEn ? lang.en : lang.es;
-    const usedNum = Number(used) || 0;
-    const percent = ((usedNum / 1024) * 100);
-    const percentText = isNaN(percent) ? '0.0' : percent.toFixed(1);
-    document.getElementById('bar').style.width = percentText + "%";
-    document.getElementById('percent-text').innerText = percentText + "% " + p.used;
-    document.getElementById('usage-text').innerText = usedNum.toFixed(2) + " MB / 1024 MB";
+    const percent = ((used / 1024) * 100).toFixed(1);
+    document.getElementById('bar').style.width = percent + "%";
+    document.getElementById('percent-text').innerText = percent + "% " + p.used;
+    document.getElementById('usage-text').innerText = used + " MB / 1024 MB";
     document.getElementById('req-val').innerText = req;
     document.getElementById('proj-val').innerText = proj === "--" ? "--" : proj + " MB";
     document.getElementById('bar').style.background = percent > 80 ? "#ff5252" : "linear-gradient(90deg, #00c853, #b2ff59)";
@@ -118,44 +92,35 @@
 
   function resetTimer() {
     clearInterval(timer);
-    timer = setInterval(updateData, Number(document.getElementById('speed').value));
+    const speed = document.getElementById('speed').value;
+    localStorage.setItem("speed", speed);
+    timer = setInterval(updateData, speed);
     updateData();
   }
 
-  async function mostrarLista() {
+  const proxyListURL = "https://proxy.webshare.io/api/v2/proxy/list/download/" + token + "/-/any/username/direct/-/?plan_id=12553212";
+
+  function mostrarLista() {
     const output = document.getElementById("proxy-output");
-    output.value = "Cargando lista...";
-    try {
-      const res = await fetch('/api/proxies');
-      if (!res.ok) throw new Error('Failed to fetch proxy list');
-      const text = await res.text();
-      output.value = text;
-    } catch (e) {
-      console.error(e);
-      output.value = isEn ? 'Error fetching list' : 'Error al obtener la lista';
-    }
+    output.value = "Abriendo lista en nueva pestaña...";
+    window.open(proxyListURL, "_blank");
   }
 
-  async function descargarLista() {
-    try {
-      const res = await fetch('/api/proxies');
-      if (!res.ok) throw new Error('Failed to download');
-      const blob = await res.blob();
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'webshare_proxies.txt';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (e) {
-      console.error(e);
-      alert(isEn ? 'Download failed' : 'Descarga fallida');
-    }
+  function descargarLista() {
+    const enlace = document.createElement("a");
+    enlace.href = proxyListURL;
+    enlace.download = "webshare_proxies.txt";
+    enlace.click();
   }
 
-  // Initial setup
-  refreshUI();
-  resetTimer();
+  window.onload = () => {
+    const savedSpeed = localStorage.getItem("speed");
+    if (savedSpeed) {
+      document.getElementById("speed").value = savedSpeed;
+    }
+    refreshUI();
+    resetTimer();
+  };
 </script>
 </body>
 </html>
