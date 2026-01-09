@@ -11,10 +11,11 @@
     #bar { background: linear-gradient(90deg, #00c853, #b2ff59); height: 100%; width: 0%; transition: width 1.5s ease; }
     .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
     button { cursor: pointer; background: #222; color: white; border: 1px solid #444; padding: 8px 15px; border-radius: 12px; font-size: 13px; transition: 0.3s; }
+    button:active { transform: scale(0.95); }
     button.active { border-color: #00c853; background: #0f2b1a; }
     .info-list { text-align: left; font-size: 14px; color: #bbb; margin-top: 20px; line-height: 1.8; }
     select { background: #222; color: white; border: 1px solid #444; border-radius: 5px; padding: 3px; }
-    textarea { width: 100%; margin-top: 10px; background: #111; color: #0f0; border: 1px solid #444; border-radius: 8px; padding: 10px; font-size: 12px; }
+    textarea { width: 100%; margin-top: 10px; background: #111; color: #0f0; border: 1px solid #444; border-radius: 8px; padding: 10px; font-size: 11px; box-sizing: border-box; }
   </style>
 </head>
 <body>
@@ -40,11 +41,10 @@
     <button id="lang-btn" onclick="toggleLang()">🌐 Idioma: Español</button>
   </div>
 
-  <!-- Nueva sección para lista de proxies -->
-  <div style="margin-top: 20px;">
-    <button onclick="mostrarLista()">📛 Ver lista de proxies</button>
-    <button onclick="descargarLista()">📥 Descargar como archivo</button>
-    <textarea id="proxy-output" rows="6" placeholder="Aquí aparecerán tus proxies..."></textarea>
+  <div style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
+    <button onclick="obtenerTokenDescarga('ver')">📛 Ver lista</button>
+    <button onclick="obtenerTokenDescarga('bajar')">📥 Descargar .txt</button>
+    <textarea id="proxy-output" rows="4" readonly placeholder="Estado del sistema..."></textarea>
   </div>
 </div>
 
@@ -55,51 +55,19 @@
   let timer;
 
   const lang = {
-    es: { used: "Usado", upd: "Actualización", req: "Solicitudes", proj: "Proyección", real: "Modo: Real", demo: "Modo: Demo", lang: "Idioma: Español" },
-    en: { used: "Used", upd: "Update", req: "Requests", proj: "Projection", real: "Mode: Real", demo: "Mode: Demo", lang: "Language: English" }
+    es: { used: "Usado", upd: "Actualización", req: "Solicitudes", proj: "Proyección", real: "Modo: Real", demo: "Modo: Demo", lang: "Idioma: Español", wait: "Generando llave...", success: "Llave generada con éxito" },
+    en: { used: "Used", upd: "Update", req: "Requests", proj: "Projection", real: "Mode: Real", demo: "Mode: Demo", lang: "Language: English", wait: "Generating key...", success: "Key generated successfully" }
   };
 
-  function toggleLang() {
-    isEn = !isEn;
-    refreshUI();
-    updateData();
-  }
-
-  function toggleMode() {
-    isDemo = !isDemo;
-    document.getElementById('mode-btn').classList.toggle('active', !isDemo);
-    refreshUI();
-    updateData();
-  }
-
-  function refreshUI() {
-    const p = isEn ? lang.en : lang.es;
-    document.getElementById('lang-btn').innerText = "🌐 " + p.lang;
-    document.getElementById('mode-btn').innerText = isDemo ? p.demo : p.real;
-    document.getElementById('label-upd').innerText = p.upd;
-    document.getElementById('label-req').innerText = p.req;
-    document.getElementById('label-proj').innerText = p.proj;
-  }
-
+  // --- LÓGICA DE DATOS ---
   async function updateData() {
-    if(isDemo) {
-      render(446, 1200, 850);
-      return;
-    }
-
-    const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
-    const url = "https://corsproxy.io/?" + encodeURIComponent(api);
-
+    if(isDemo) { render(446, 1200, 850); return; }
+    const url = "https://corsproxy.io/?" + encodeURIComponent("https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/");
     try {
       const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
       const data = await res.json();
-      const used = (data.actual_usage / 1048576).toFixed(2);
-      const requests = data.total_requests || "--";
-      const projected = data.projected_usage ? (data.projected_usage / 1048576).toFixed(2) : "--";
-      render(used, requests, projected);
-    } catch (e) {
-      document.getElementById('percent-text').innerText = "Error";
-    }
+      render((data.actual_usage / 1048576).toFixed(2), data.total_requests || "--", data.projected_usage ? (data.projected_usage / 1048576).toFixed(2) : "--");
+    } catch (e) { document.getElementById('percent-text').innerText = "Error"; }
   }
 
   function render(used, req, proj) {
@@ -113,26 +81,53 @@
     document.getElementById('bar').style.background = percent > 80 ? "#ff5252" : "linear-gradient(90deg, #00c853, #b2ff59)";
   }
 
-  function resetTimer() {
-    clearInterval(timer);
-    timer = setInterval(updateData, document.getElementById('speed').value);
-    updateData();
-  }
-
-  const proxyListURL = "https://proxy.webshare.io/api/v2/proxy/list/download/" + token + "/-/any/username/direct/-/?plan_id=12553212";
-
-  // ✅ Mostrar lista en pantalla (abre en nueva pestaña)
-  function mostrarLista() {
+  // --- LÓGICA DE PROXIES (GET DOWNLOAD TOKEN) ---
+  async function obtenerTokenDescarga(accion) {
     const output = document.getElementById("proxy-output");
-    output.value = "Abriendo lista en nueva pestaña...";
-    window.open(proxyListURL, "_blank");
+    const p = isEn ? lang.en : lang.es;
+    output.value = p.wait;
+
+    // 1. Llamada para obtener el Token según el scope 'proxy_list'
+    const tokenUrl = "https://corsproxy.io/?" + encodeURIComponent("https://proxy.webshare.io/api/v2/download_token/proxy_list/");
+    
+    try {
+      const response = await fetch(tokenUrl, {
+        method: 'POST', // Webshare usa POST para crear el token
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      
+      const data = await response.json();
+      const downloadKey = data.key; // Esta es la llave "abcdefg..."
+
+      // 2. Construir URL final de descarga con la KEY obtenida
+      const finalUrl = `https://proxy.webshare.io/api/v2/proxy/list/download/${downloadKey}/-/any/username/direct/-/`;
+
+      output.value = p.success;
+
+      if (accion === 'ver') {
+        window.open(finalUrl, "_blank");
+      } else {
+        const a = document.createElement("a");
+        a.href = finalUrl;
+        a.download = "proxies_webshare.txt";
+        a.click();
+      }
+    } catch (e) {
+      output.value = "Error: API Token inválido o problema de red.";
+    }
   }
 
-  function descargarLista() {
-    const enlace = document.createElement("a");
-    enlace.href = proxyListURL;
-    enlace.download = "webshare_proxies.txt";
-    enlace.click();
+  // --- UTILIDADES ---
+  function toggleLang() { isEn = !isEn; refreshUI(); updateData(); }
+  function toggleMode() { isDemo = !isDemo; document.getElementById('mode-btn').classList.toggle('active', !isDemo); refreshUI(); updateData(); }
+  function resetTimer() { clearInterval(timer); timer = setInterval(updateData, document.getElementById('speed').value); updateData(); }
+  function refreshUI() {
+    const p = isEn ? lang.en : lang.es;
+    document.getElementById('lang-btn').innerText = "🌐 " + p.lang;
+    document.getElementById('mode-btn').innerText = isDemo ? p.demo : p.real;
+    document.getElementById('label-upd').innerText = p.upd;
+    document.getElementById('label-req').innerText = p.req;
+    document.getElementById('label-proj').innerText = p.proj;
   }
 
   refreshUI();
@@ -140,3 +135,4 @@
 </script>
 </body>
 </html>
+n
