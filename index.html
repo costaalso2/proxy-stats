@@ -41,14 +41,16 @@
   </div>
 
   <div style="margin-top: 20px;">
-    <button onclick="loadProxyList()">📥 Ver lista de proxies</button>
-    <button onclick="descargarComoArchivo()">💾 Descargar como archivo</button>
+    <button onclick="mostrarLista()">📥 Ver lista de proxies</button>
+    <button onclick="descargarLista()">💾 Descargar como archivo</button>
     <textarea id="proxy-output" rows="6" placeholder="Aquí aparecerán tus proxies..."></textarea>
   </div>
 </div>
 
 <script>
-  const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap";
+  // ✅ Token de Webshare
+  const token = "2x3wt52c4rtbdbav7u4of5v4jgep9dfp1dj98zap"; 
+
   let isEn = false;
   let isDemo = false;
   let timer;
@@ -118,9 +120,10 @@
     updateData();
   }
 
-  const proxyListURL = "https://proxy.webshare.io/api/v2/proxy/list/download/qthsrtyuqzpvllozmigkqmkdzketghhmnkwlzvit/-/any/username/direct/-/?plan_id=12553212";
+  // ✅ URL de lista de proxies con tu token
+  const proxyListURL = "https://proxy.webshare.io/api/v2/proxy/list/download/" + token + "/-/any/username/direct/-/?plan_id=12553212";
 
-  async function loadProxyList() {
+  async function mostrarLista() {
     const output = document.getElementById("proxy-output");
     output.value = "Cargando lista de proxies...";
     try {
@@ -132,11 +135,9 @@
     }
   }
 
-  function descargarComoArchivo() {
-    const contenido = document.getElementById("proxy-output").value;
-    const blob = new Blob([contenido], { type: "text/plain" });
+  function descargarLista() {
     const enlace = document.createElement("a");
-    enlace.href = URL.createObjectURL(blob);
+    enlace.href = proxyListURL;
     enlace.download = "webshare_proxies.txt";
     enlace.click();
   }
