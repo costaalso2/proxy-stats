@@ -15,7 +15,6 @@
     .info-list { text-align: left; font-size: 14px; color: #bbb; margin-top: 20px; line-height: 1.8; }
     select { background: #222; color: white; border: 1px solid #444; border-radius: 5px; padding: 3px; }
     textarea { width: 100%; margin-top: 10px; background: #111; color: #0f0; border: 1px solid #444; border-radius: 8px; padding: 10px; font-size: 12px; }
-    input.token { width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #444; background: #111; color: #fff; margin-top: 8px; }
     .small { font-size: 12px; color: #999; margin-top: 8px; }
   </style>
 </head>
@@ -42,27 +41,16 @@
     <button id="lang-btn" onclick="toggleLang()">🌐 Idioma: Español</button>
   </div>
 
-  <!-- Token input -->
-  <div style="margin-top: 18px; text-align: left;">
-    <label class="small">Webshare API Token (no lo incluyas en commits)</label>
-    <input id="token-input" class="token" placeholder="Pega tu token aquí" />
-    <div style="display:flex; gap:8px; margin-top:8px;">
-      <button onclick="saveToken()">Guardar token</button>
-      <button onclick="clearToken()">Eliminar token</button>
-    </div>
-    <div id="token-hint" class="small">Token guardado: <span id="token-status">no</span></div>
-  </div>
-
   <!-- Nueva sección para lista de proxies -->
   <div style="margin-top: 20px;">
     <button onclick="mostrarLista()" id="view-list-btn">📛 Ver lista de proxies</button>
     <button onclick="descargarLista()" id="download-list-btn">📥 Descargar como archivo</button>
     <textarea id="proxy-output" rows="6" placeholder="Aquí aparecerán tus proxies..."></textarea>
+    <div class="small">Nota: el token está protegido en el servidor. Ejecuta el servidor con WS_TOKEN en .env.</div>
   </div>
 </div>
 
 <script>
-  // Token is no longer hard-coded. Store it in localStorage instead.
   let isEn = false;
   let isDemo = false;
   let timer;
@@ -71,33 +59,6 @@
     es: { used: "Usado", upd: "Actualización", req: "Solicitudes", proj: "Proyección", real: "Modo: Real", demo: "Modo: Demo", lang: "Idioma: Español" },
     en: { used: "Used", upd: "Update", req: "Requests", proj: "Projection", real: "Mode: Real", demo: "Mode: Demo", lang: "Language: English" }
   };
-
-  function getToken() {
-    return localStorage.getItem('ws_token') || '';
-  }
-
-  function saveToken() {
-    const v = document.getElementById('token-input').value.trim();
-    if (!v) return alert('Introduce un token válido');
-    localStorage.setItem('ws_token', v);
-    updateTokenUI();
-    updateData();
-  }
-
-  function clearToken() {
-    localStorage.removeItem('ws_token');
-    document.getElementById('token-input').value = '';
-    updateTokenUI();
-    updateData();
-  }
-
-  function updateTokenUI() {
-    const t = getToken();
-    document.getElementById('token-status').innerText = t ? 'sí' : 'no';
-    document.getElementById('token-input').value = t || '';
-    document.getElementById('view-list-btn').disabled = !t;
-    document.getElementById('download-list-btn').disabled = !t;
-  }
 
   function toggleLang() {
     isEn = !isEn;
@@ -127,22 +88,8 @@
       return;
     }
 
-    const token = getToken();
-    if (!token) {
-      document.getElementById('percent-text').innerText = isEn ? 'No token' : 'Sin token';
-      document.getElementById('usage-text').innerText = '--';
-      document.getElementById('req-val').innerText = '--';
-      document.getElementById('proj-val').innerText = '--';
-      document.getElementById('bar').style.width = '0%';
-      return;
-    }
-
-    const api = "https://proxy.webshare.io/api/v2/proxy/stats/bandwidth/";
-    // Use a CORS proxy only if necessary; this implementation uses corsproxy.io as before
-    const url = "https://corsproxy.io/?" + encodeURIComponent(api);
-
     try {
-      const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
+      const res = await fetch('/api/stats');
       if (!res.ok) throw new Error('Network response was not ok');
       const data = await res.json();
       const used = Number((data.actual_usage || 0) / 1048576).toFixed(2);
@@ -175,40 +122,23 @@
     updateData();
   }
 
-  function proxyListUrlForToken(token) {
-    // Build the download endpoint; token is sent as part of the URL per webshare current API
-    return "https://proxy.webshare.io/api/v2/proxy/list/download/" + encodeURIComponent(token) + "/-/any/username/direct/-/?plan_id=12553212";
-  }
-
-  // Mostrar lista en pantalla (fetch y mostrar en textarea). Avoid opening a new tab with token in URL.
   async function mostrarLista() {
     const output = document.getElementById("proxy-output");
-    const token = getToken();
-    if (!token) return alert(isEn ? 'No token set' : 'No hay token');
     output.value = "Cargando lista...";
-
-    const api = proxyListUrlForToken(token);
-    const url = "https://corsproxy.io/?" + encodeURIComponent(api);
-
     try {
-      const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
+      const res = await fetch('/api/proxies');
       if (!res.ok) throw new Error('Failed to fetch proxy list');
       const text = await res.text();
       output.value = text;
     } catch (e) {
       console.error(e);
-      output.value = isEn ? 'Error al obtener la lista' : 'Error al obtener la lista';
+      output.value = isEn ? 'Error fetching list' : 'Error al obtener la lista';
     }
   }
 
   async function descargarLista() {
-    const token = getToken();
-    if (!token) return alert(isEn ? 'No token set' : 'No hay token');
-    const api = proxyListUrlForToken(token);
-    const url = "https://corsproxy.io/?" + encodeURIComponent(api);
-
     try {
-      const res = await fetch(url, { headers: { 'Authorization': `Token ${token}` } });
+      const res = await fetch('/api/proxies');
       if (!res.ok) throw new Error('Failed to download');
       const blob = await res.blob();
       const link = document.createElement('a');
@@ -225,7 +155,6 @@
 
   // Initial setup
   refreshUI();
-  updateTokenUI();
   resetTimer();
 </script>
 </body>
